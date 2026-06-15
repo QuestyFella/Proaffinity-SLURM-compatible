@@ -22,8 +22,8 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=2G
 #SBATCH --time=00:05:00
-#SBATCH --output=logs/test_%A_%a.out
-#SBATCH --error=logs/test_%A_%a.err
+#SBATCH --output=slurm-test_%A_%a.out
+#SBATCH --error=slurm-test_%A_%a.err
 #SBATCH --export=ALL
 
 set -euo pipefail
@@ -39,11 +39,10 @@ OUTPUT_DIR="$2"
 TASK_ID="${SLURM_ARRAY_TASK_ID:-1}"
 
 mkdir -p "$OUTPUT_DIR"
-mkdir -p logs
 OUTPUT_DIR="$(cd "$OUTPUT_DIR" && pwd)"
 
 # --- read the assigned line from the index file ------------------------
-LINE_COUNT=$(wc -l < "$INDEX_FILE")
+LINE_COUNT=$(awk 'END { print NR }' "$INDEX_FILE")
 if [ "$TASK_ID" -gt "$LINE_COUNT" ]; then
     echo "[test $TASK_ID] TASK_ID ($TASK_ID) exceeds index file line count ($LINE_COUNT) — nothing to do" >&2
     exit 0
@@ -81,13 +80,38 @@ if echo "$CHAIN_SPEC" | grep -q ';'; then
 fi
 NORMALISED_SPEC="$CHAIN_SPEC"
 
-# --- resolve relative paths --------------------------------------------
-if [[ "$PDB_FILE" != /* ]]; then
-    INDEX_DIR="$(dirname "$INDEX_FILE")"
-    if [ -f "${INDEX_DIR}/${PDB_FILE}" ]; then
-        PDB_FILE="${INDEX_DIR}/${PDB_FILE}"
-    fi
-fi
+# --- handle relative / bare-name paths in index file -------------------
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+
+resolve_pdb() {
+    local f="$1"
+    local dir="$2"
+    local proj="${3:-${PROJECT_DIR}}"
+    # Exact path
+    [ -f "$f" ] && echo "$f" && return 0
+    # Try extension suffixes
+    [ -f "${f}.pdb" ] && echo "${f}.pdb" && return 0
+    [ -f "${f}.ent.pdb" ] && echo "${f}.ent.pdb" && return 0
+    # Relative to index file directory
+    [ -f "${dir}/${f}" ] && echo "${dir}/${f}" && return 0
+    [ -f "${dir}/${f}.pdb" ] && echo "${dir}/${f}.pdb" && return 0
+    [ -f "${dir}/${f}.ent.pdb" ] && echo "${dir}/${f}.ent.pdb" && return 0
+    # PROJECT_DIR-relative (for bare names and relative paths when running from any CWD)
+    [ -f "${proj}/${f}" ] && echo "${proj}/${f}" && return 0
+    [ -f "${proj}/${f}.pdb" ] && echo "${proj}/${f}.pdb" && return 0
+    [ -f "${proj}/${f}.ent.pdb" ] && echo "${proj}/${f}.ent.pdb" && return 0
+    [ -f "${proj}/data/pdb/${f}.pdb" ] && echo "${proj}/data/pdb/${f}.pdb" && return 0
+    [ -f "${proj}/data/pdb/${f}.ent.pdb" ] && echo "${proj}/data/pdb/${f}.ent.pdb" && return 0
+    [ -f "${proj}/samples/${f}.pdb" ] && echo "${proj}/samples/${f}.pdb" && return 0
+    [ -f "${proj}/pdbs/${f}.pdb" ] && echo "${proj}/pdbs/${f}.pdb" && return 0
+    [ -f "${proj}/data/${f}.pdb" ] && echo "${proj}/data/${f}.pdb" && return 0
+    echo "$f"
+    return 1
+}
+
+INDEX_DIR="$(dirname "$INDEX_FILE")"
+PDB_FILE=$(resolve_pdb "$PDB_FILE" "$INDEX_DIR" "$PROJECT_DIR" || true)
 
 echo "[test $TASK_ID] Validating: $PDB_FILE  chains: $CHAIN_SPEC (raw: $CHAIN_SPEC_RAW)" >&2
 
@@ -125,7 +149,7 @@ else
 
                 # 5. Check all spec chain letters exist in PDB
                 if [ -n "$PDB_CHAINS" ]; then
-                    SPEC_CHAINS=$(echo "$CHAIN_SPEC" | grep -o '[A-Za-z0-9]' | sort -u | tr -d '\n')
+                    SPEC_CHAINS=$(echo "$CHAIN_SPEC" | grep -o '[A-Za-z0-9]' | sort -u | tr -d '\n') || true
                     MISSING=""
                     for (( i=0; i<${#SPEC_CHAINS}; i++ )); do
                         c="${SPEC_CHAINS:$i:1}"

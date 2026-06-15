@@ -19,8 +19,8 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
 #SBATCH --time=01:00:00
-#SBATCH --output=logs/slurm_%A_%a.out
-#SBATCH --error=logs/slurm_%A_%a.err
+#SBATCH --output=slurm-infer_%A_%a.out
+#SBATCH --error=slurm-infer_%A_%a.err
 #SBATCH --export=ALL
 
 # Uncomment and adjust as needed:
@@ -39,11 +39,11 @@ if [ $# -lt 2 ]; then
 fi
 
 INDEX_FILE="$(realpath "$1")"
-OUTPUT_DIR="$(realpath "$2")"
+OUTPUT_DIR="$2"
 TASK_ID="${SLURM_ARRAY_TASK_ID:-1}"
 
 mkdir -p "$OUTPUT_DIR"
-mkdir -p logs
+OUTPUT_DIR="$(cd "$OUTPUT_DIR" && pwd)"
 
 # --- resolve project paths ---------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -76,7 +76,7 @@ fi
 python -c "import torch_geometric; print(f'PyG {torch_geometric.__version__}')" >&2
 
 # --- read the assigned line from the index file ------------------------
-LINE_COUNT=$(wc -l < "$INDEX_FILE")
+LINE_COUNT=$(awk 'END { print NR }' "$INDEX_FILE")
 if [ "$TASK_ID" -gt "$LINE_COUNT" ]; then
     echo "[task $TASK_ID] TASK_ID ($TASK_ID) exceeds index file line count ($LINE_COUNT) — nothing to do" >&2
     exit 0
@@ -116,12 +116,36 @@ echo "[task $TASK_ID] PDB: $PDB_FILE  chains: $CHAIN_SPEC" >&2
 
 # --- handle relative paths in index file -------------------------------
 # If PDB_FILE is relative, resolve it relative to the index file's directory
-if [[ "$PDB_FILE" != /* ]]; then
-    INDEX_DIR="$(dirname "$INDEX_FILE")"
-    if [ -f "${INDEX_DIR}/${PDB_FILE}" ]; then
-        PDB_FILE="${INDEX_DIR}/${PDB_FILE}"
-    fi
-fi
+# --- handle relative / bare-name paths in index file -------------------
+# Try, in order: as-is, .pdb suffix, .ent.pdb suffix, relative to index dir, etc.
+resolve_pdb() {
+    local f="$1"
+    local dir="$2"
+    local proj="$3"
+    # Exact path
+    [ -f "$f" ] && echo "$f" && return 0
+    # Try extension suffixes
+    [ -f "${f}.pdb" ] && echo "${f}.pdb" && return 0
+    [ -f "${f}.ent.pdb" ] && echo "${f}.ent.pdb" && return 0
+    # Relative to index file directory
+    [ -f "${dir}/${f}" ] && echo "${dir}/${f}" && return 0
+    [ -f "${dir}/${f}.pdb" ] && echo "${dir}/${f}.pdb" && return 0
+    [ -f "${dir}/${f}.ent.pdb" ] && echo "${dir}/${f}.ent.pdb" && return 0
+    # PROJECT_DIR-relative (for bare names and relative paths when running from any CWD)
+    [ -f "${proj}/${f}" ] && echo "${proj}/${f}" && return 0
+    [ -f "${proj}/${f}.pdb" ] && echo "${proj}/${f}.pdb" && return 0
+    [ -f "${proj}/${f}.ent.pdb" ] && echo "${proj}/${f}.ent.pdb" && return 0
+    [ -f "${proj}/data/pdb/${f}.pdb" ] && echo "${proj}/data/pdb/${f}.pdb" && return 0
+    [ -f "${proj}/data/pdb/${f}.ent.pdb" ] && echo "${proj}/data/pdb/${f}.ent.pdb" && return 0
+    [ -f "${proj}/samples/${f}.pdb" ] && echo "${proj}/samples/${f}.pdb" && return 0
+    [ -f "${proj}/pdbs/${f}.pdb" ] && echo "${proj}/pdbs/${f}.pdb" && return 0
+    [ -f "${proj}/data/${f}.pdb" ] && echo "${proj}/data/${f}.pdb" && return 0
+    echo "$f"
+    return 1
+}
+
+INDEX_DIR="$(dirname "$INDEX_FILE")"
+PDB_FILE=$(resolve_pdb "$PDB_FILE" "$INDEX_DIR" "$PROJECT_DIR" || true)
 
 if [ ! -f "$PDB_FILE" ]; then
     echo "[task $TASK_ID] ERROR: PDB file not found: $PDB_FILE" >&2
@@ -150,7 +174,7 @@ TASK_TSV="${OUTPUT_DIR}/task_${TASK_ID}.tsv"
 echo "# pdb_file	chain_spec	pKa	status	elapsed" > "$TASK_TSV"
 
 if [ $RC -eq 0 ]; then
-    PKA_LINE=$(grep -i 'pKa:' "$TASK_OUT" | tail -1)
+    PKA_LINE=$(grep -i 'pKa:' "$TASK_OUT" | tail -1 || true)
     if [ -n "$PKA_LINE" ]; then
         PKA_VAL=$(echo "$PKA_LINE" | sed 's/.*pKa:\s*//i')
         echo -e "${PDB_FILE}\t${CHAIN_SPEC}\t${PKA_VAL}\tOK\t${ELAPSED}s" >> "$TASK_TSV"
@@ -161,7 +185,7 @@ if [ $RC -eq 0 ]; then
     fi
 else
     # Extract a short error message from the log
-    ERR_MSG=$(tail -5 "$TASK_OUT" | grep -i 'error\|ERROR' | tail -1 | cut -c1-120)
+    ERR_MSG=$(tail -5 "$TASK_OUT" | grep -i 'error\|ERROR' | tail -1 | cut -c1-120 || true)
     echo -e "${PDB_FILE}\t${CHAIN_SPEC}\t\tERROR: ${ERR_MSG:-exit code $RC}\t${ELAPSED}s" >> "$TASK_TSV"
     echo "[task $TASK_ID] FAILED — exit code $RC (${ELAPSED}s)" >&2
 fi

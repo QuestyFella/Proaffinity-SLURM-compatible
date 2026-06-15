@@ -65,12 +65,12 @@ else
     OUTPUT_DIR="results/$(date +%Y%m%d_%H%M%S)"
 fi
 
-OUTPUT_DIR="$(realpath -m "$OUTPUT_DIR")"
 mkdir -p "$OUTPUT_DIR"
+OUTPUT_DIR="$(cd "$OUTPUT_DIR" && pwd)"
 
 # --- count entries -----------------------------------------------------
-# Count non-empty, non-comment lines
-TOTAL=$(grep -c -v '^\s*\(#\|$\)' "$INDEX_FILE" || true)
+# Count physical lines (must match the job script's sed line reading)
+TOTAL=$(awk 'END { print NR }' "$INDEX_FILE")
 if [ "$TOTAL" -eq 0 ]; then
     echo "ERROR: Index file is empty: $INDEX_FILE" >&2
     exit 3
@@ -111,7 +111,7 @@ echo "  Per-task logs:   $OUTPUT_DIR/task_*.txt"
 echo "  Per-task TSVs:   $OUTPUT_DIR/task_*.tsv"
 echo ""
 echo "After all jobs finish, merge with:"
-echo "  cat $OUTPUT_DIR/task_*.tsv | grep -v '^#' | sort -u > $OUTPUT_DIR/results.tsv"
+echo "  (head -1 \"$OUTPUT_DIR/task_1.tsv\" && tail -q -n+2 \"$OUTPUT_DIR\"/task_*.tsv) > \"$OUTPUT_DIR/results.tsv\""
 echo ""
 echo "Cancel with:"
 echo "  scancel $JOB_ID"
