@@ -3,7 +3,7 @@
 # Secrets come from the environment via api_key_env; never put keys here.
 
 config_version = 2   # schema marker for diagnostics; old versions may ignore it
-default_model = "deepseek-flash"
+default_model = "deepseek-v4-pro"
 # language      = "zh"   # ui/model language; empty = auto-detect from $LANG / $REASONIX_LANG
 
 [agent]
