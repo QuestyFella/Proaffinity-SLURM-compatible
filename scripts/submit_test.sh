@@ -17,6 +17,9 @@
 #
 #   # Custom output directory
 #   ./scripts/submit_test.sh my_pdbs.tsv test_results/
+#
+#   # Rorqual: account is required even for CPU-only validation jobs
+#   ./scripts/submit_test.sh my_pdbs.tsv test_results/ --account=def-yanyan-ab
 # =============================================================================
 
 set -euo pipefail
@@ -32,9 +35,9 @@ usage() {
     echo "  output_dir     Where test results go (default: test_results/<timestamp>)"
     echo "  sbatch args    Passed through to sbatch"
     echo ""
-    echo "Examples:"
-    echo "  $0 index.tsv"
-    echo "  $0 data/index_example.txt test_results/"
+    echo "Examples (Rorqual / Alliance):"
+    echo "  $0 index.tsv --account=def-yanyan-ab"
+    echo "  $0 data/index_example.txt test_results/ --account=def-yanyan-ab"
     exit 1
 }
 
@@ -87,6 +90,7 @@ echo ""
 JOB_ID=$(sbatch \
     --array="1-${TOTAL}" \
     --job-name="proaffinity-test" \
+    --account=def-yanyan-ab \
     "$@" \
     "$TEST_SCRIPT" "$INDEX_FILE" "$OUTPUT_DIR" \
     | awk '{print $NF}')

@@ -13,9 +13,9 @@
 # appends a line to <output_dir>/results.tsv.
 # =============================================================================
 
-# --- SLURM directives --------------------------------------------------
+# --- SLURM directives (Rorqual / Alliance H100) --------------------------
 #SBATCH --job-name=proaffinity
-#SBATCH --gres=gpu:1
+#SBATCH --gpus=h100:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
 #SBATCH --time=01:00:00
@@ -23,10 +23,10 @@
 #SBATCH --error=slurm-infer_%A_%a.err
 #SBATCH --export=ALL
 
-# Uncomment and adjust as needed:
-##SBATCH --partition=gpu
-##SBATCH --account=your_account
-##SBATCH --constraint=a100
+#SBATCH --account=def-yanyan-ab
+# MIG slice (max 1 per job on Alliance): pass via submit_array.sh or uncomment ONE:
+##SBATCH --gpus=nvidia_h100_80gb_hbm3_2g.20gb:1
+##SBATCH --gpus=nvidia_h100_80gb_hbm3_3g.40gb:1
 
 set -euo pipefail
 

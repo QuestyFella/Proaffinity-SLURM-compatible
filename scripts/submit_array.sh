@@ -18,8 +18,12 @@
 #   # Custom output directory
 #   ./scripts/submit_array.sh my_pdbs.tsv results/run1
 #
-#   # Extra sbatch args (e.g. account, partition, time limit)
-#   ./scripts/submit_array.sh my_pdbs.tsv output/ --account=xyz --time=02:00:00
+#   # Rorqual: account is required; extra sbatch args override #SBATCH in slurm_array.sh
+#   ./scripts/submit_array.sh my_pdbs.tsv output/ --account=def-yanyan-ab --time=02:00:00
+#
+#   # MIG slice instead of a full H100 (queues faster; 1 MIG per job)
+#   ./scripts/submit_array.sh my_pdbs.tsv output/ --account=def-yanyan-ab \
+#       --gpus=nvidia_h100_80gb_hbm3_2g.20gb:1
 # =============================================================================
 
 set -euo pipefail
@@ -33,12 +37,13 @@ usage() {
     echo ""
     echo "  index_file     TSV file: pdb_file<TAB>chain_spec"
     echo "  output_dir     Where results go (default: results/<timestamp>)"
-    echo "  sbatch args    Passed through to sbatch (--account, --time, etc.)"
+    echo "  sbatch args    Passed through to sbatch (--account, --gpus, --time, etc.)"
     echo ""
-    echo "Examples:"
+    echo "Examples (Rorqual / Alliance H100):"
     echo "  $0 my_pdbs.tsv"
-    echo "  $0 my_pdbs.tsv results/run1"
-    echo "  $0 my_pdbs.tsv output/ --account=myproj --time=02:00:00 --partition=gpu"
+    echo "  $0 my_pdbs.tsv results/run1 --account=def-yanyan-ab"
+    echo "  $0 my_pdbs.tsv output/ --account=def-yanyan-ab --time=02:00:00"
+    echo "  $0 my_pdbs.tsv output/ --account=def-yanyan-ab --gpus=nvidia_h100_80gb_hbm3_2g.20gb:1"
     exit 1
 }
 
@@ -90,6 +95,7 @@ echo ""
 JOB_ID=$(sbatch \
     --array="1-${TOTAL}" \
     --job-name="proaffinity" \
+    --account=def-yanyan-ab \
     "$@" \
     "$SLURM_SCRIPT" "$INDEX_FILE" "$OUTPUT_DIR" \
     | awk '{print $NF}')

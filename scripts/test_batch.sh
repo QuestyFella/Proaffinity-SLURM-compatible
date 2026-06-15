@@ -25,6 +25,7 @@
 #SBATCH --output=slurm-test_%A_%a.out
 #SBATCH --error=slurm-test_%A_%a.err
 #SBATCH --export=ALL
+#SBATCH --account=def-yanyan-ab
 
 set -euo pipefail
 
