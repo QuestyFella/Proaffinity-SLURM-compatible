@@ -929,7 +929,8 @@ all_predictions = np.concatenate(all_predictions, axis=0)
 print('pKa:', round(all_predictions[0], 3))
 
 # save to file
-with open('./result_' + pdbfile + '.txt', 'w') as f:
+pdb_basename = os.path.basename(pdbfile)
+with open('./result_' + pdb_basename + '.txt', 'w') as f:
     f.write(pdbfile + ' pKa: ' + str(round(all_predictions[0], 3)))
 
 
