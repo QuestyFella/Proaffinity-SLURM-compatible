@@ -526,8 +526,8 @@ info_save2 = (intra_pairsB, edge_index2, seqB)
 from transformers import AutoTokenizer, EsmModel
 import torch
 
-tokenizer = AutoTokenizer.from_pretrained("facebook/esm2_t33_650M_UR50D")
-model = EsmModel.from_pretrained("facebook/esm2_t33_650M_UR50D")
+tokenizer = AutoTokenizer.from_pretrained("facebook/esm2_t33_650M_UR50D", local_files_only=True)
+model = EsmModel.from_pretrained("facebook/esm2_t33_650M_UR50D", local_files_only=True)
 
 # model.eval()
 
