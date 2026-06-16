@@ -38,6 +38,7 @@ usage() {
     echo "Examples (Rorqual / Alliance):"
     echo "  $0 index.tsv --account=def-yanyan-ab"
     echo "  $0 data/index_example.txt test_results/ --account=def-yanyan-ab"
+    echo "  PROAFFINITY_TEST_CONCURRENCY=5 $0 data/index_proteins.txt"
     exit 1
 }
 
@@ -75,6 +76,13 @@ if [ "$TOTAL" -eq 0 ]; then
     exit 3
 fi
 
+ARRAY_CONCURRENCY="${PROAFFINITY_TEST_CONCURRENCY:-10}"
+if [[ "$ARRAY_CONCURRENCY" =~ ^[0-9]+$ ]] && [ "$ARRAY_CONCURRENCY" -gt 0 ]; then
+    ARRAY_SPEC="1-${TOTAL}%${ARRAY_CONCURRENCY}"
+else
+    ARRAY_SPEC="1-${TOTAL}"
+fi
+
 # --- submit ------------------------------------------------------------
 echo "=============================================="
 echo " ProAffinity-GNN Input Validation"
@@ -82,13 +90,13 @@ echo "=============================================="
 echo " Index file:  $INDEX_FILE"
 echo " Entries:     $TOTAL"
 echo " Output dir:  $OUTPUT_DIR"
-echo " Array spec:  1-${TOTAL}"
-echo " Resources:   1 CPU, 2G mem, 5 min (no GPU)"
+echo " Array spec:  $ARRAY_SPEC"
+echo " Resources:   1 CPU, 1G mem, 3 min (no GPU)"
 echo "=============================================="
 echo ""
 
 JOB_ID=$(sbatch \
-    --array="1-${TOTAL}" \
+    --array="$ARRAY_SPEC" \
     --job-name="proaffinity-test" \
     --account=def-yanyan-ab \
     "$@" \

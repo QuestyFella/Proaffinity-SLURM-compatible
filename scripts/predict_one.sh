@@ -59,7 +59,7 @@ PDB_FILE="$(realpath "$PDB_FILE")"
 PDB_BASENAME="$(basename "$PDB_FILE")"
 PDB_ID="${PDB_BASENAME%.pdb}"
 PDB_ID="${PDB_ID%.ent}"
-PDB_ID="${PDB_ID,,}"
+PDB_ID="$(printf '%s' "$PDB_ID" | tr '[:upper:]' '[:lower:]')"
 WORK_DIR="$(mktemp -d -t proaffinity_XXXXXX)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 

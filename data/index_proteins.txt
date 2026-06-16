@@ -1,0 +1,17 @@
+proteins/complexes/1dzb.pdb	A;X
+proteins/complexes/1i8k.pdb	A,B;C
+proteins/complexes/1jps.pdb	L;T
+proteins/complexes/1zvy.pdb	A;B
+proteins/complexes/2fx7.pdb	L;P
+proteins/complexes/2fx9.pdb	L;P
+proteins/complexes/2hkf.pdb	L;P
+proteins/complexes/2ny1.pdb	D;A
+proteins/complexes/2zpk.pdb	M;Q
+proteins/complexes/3g5v.pdb	A,B;C
+proteins/complexes/3p0y.pdb	H,L;A
+proteins/complexes/3zkq.pdb	D;A
+proteins/complexes/4g6m.pdb	L;A
+proteins/complexes/5b71.pdb	D;F
+proteins/complexes/5e8e.pdb	A,B;H
+proteins/complexes/5fcu.pdb	L;G
+proteins/complexes/5l6y.pdb	H,L;C

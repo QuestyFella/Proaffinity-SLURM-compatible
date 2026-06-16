@@ -13,19 +13,19 @@
 # appends a line to <output_dir>/results.tsv.
 # =============================================================================
 
-# --- SLURM directives (Rorqual / Alliance H100) --------------------------
+# --- SLURM directives (Rorqual / Alliance H100 MIG) ----------------------
 #SBATCH --job-name=proaffinity
-#SBATCH --gpus=h100:1
-#SBATCH --cpus-per-task=8
-#SBATCH --mem=32G
-#SBATCH --time=01:00:00
+#SBATCH --gpus=nvidia_h100_80gb_hbm3_2g.20gb:1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=16G
+#SBATCH --time=00:30:00
 #SBATCH --output=slurm-infer_%A_%a.out
 #SBATCH --error=slurm-infer_%A_%a.err
 #SBATCH --export=ALL
 
 #SBATCH --account=def-yanyan-ab
-# MIG slice (max 1 per job on Alliance): pass via submit_array.sh or uncomment ONE:
-##SBATCH --gpus=nvidia_h100_80gb_hbm3_2g.20gb:1
+# Larger options if the 20 GB MIG slice is not enough:
+##SBATCH --gpus=h100:1
 ##SBATCH --gpus=nvidia_h100_80gb_hbm3_3g.40gb:1
 
 set -euo pipefail
@@ -147,6 +147,8 @@ resolve_pdb() {
     [ -f "${proj}/samples/${f}.pdb" ] && echo "${proj}/samples/${f}.pdb" && return 0
     [ -f "${proj}/pdbs/${f}.pdb" ] && echo "${proj}/pdbs/${f}.pdb" && return 0
     [ -f "${proj}/data/${f}.pdb" ] && echo "${proj}/data/${f}.pdb" && return 0
+    [ -f "${proj}/proteins/complexes/${f}" ] && echo "${proj}/proteins/complexes/${f}" && return 0
+    [ -f "${proj}/proteins/complexes/${f}.pdb" ] && echo "${proj}/proteins/complexes/${f}.pdb" && return 0
     echo "$f"
     return 1
 }

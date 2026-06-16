@@ -7,7 +7,7 @@
 #   - All chain letters in the chain spec actually exist in the PDB
 #   - Chain spec is parseable (two valid parts)
 #
-# Uses minimal resources (no GPU, 1 CPU, 2G mem, 5 min timeout) so you can
+# Uses minimal resources (no GPU, 1 CPU, 1G mem, 3 min timeout) so you can
 # quickly identify bad inputs before launching the real inference array.
 #
 # Submit with:
@@ -20,8 +20,8 @@
 # --- SLURM directives --------------------------------------------------
 #SBATCH --job-name=proaffinity-test
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=2G
-#SBATCH --time=00:05:00
+#SBATCH --mem=1G
+#SBATCH --time=00:03:00
 #SBATCH --output=slurm-test_%A_%a.out
 #SBATCH --error=slurm-test_%A_%a.err
 #SBATCH --export=ALL
@@ -117,6 +117,8 @@ resolve_pdb() {
     [ -f "${proj}/samples/${f}.pdb" ] && echo "${proj}/samples/${f}.pdb" && return 0
     [ -f "${proj}/pdbs/${f}.pdb" ] && echo "${proj}/pdbs/${f}.pdb" && return 0
     [ -f "${proj}/data/${f}.pdb" ] && echo "${proj}/data/${f}.pdb" && return 0
+    [ -f "${proj}/proteins/complexes/${f}" ] && echo "${proj}/proteins/complexes/${f}" && return 0
+    [ -f "${proj}/proteins/complexes/${f}.pdb" ] && echo "${proj}/proteins/complexes/${f}.pdb" && return 0
     echo "$f"
     return 1
 }

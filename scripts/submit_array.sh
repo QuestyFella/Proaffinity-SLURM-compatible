@@ -21,9 +21,13 @@
 #   # Rorqual: account is required; extra sbatch args override #SBATCH in slurm_array.sh
 #   ./scripts/submit_array.sh my_pdbs.tsv output/ --account=def-yanyan-ab --time=02:00:00
 #
-#   # MIG slice instead of a full H100 (queues faster; 1 MIG per job)
+#   # Default uses a 20 GB H100 MIG slice and runs at most 2 tasks concurrently.
+#   # Override concurrency if needed:
+#   PROAFFINITY_ARRAY_CONCURRENCY=1 ./scripts/submit_array.sh my_pdbs.tsv
+#
+#   # Override to a full H100 if the MIG slice is not enough:
 #   ./scripts/submit_array.sh my_pdbs.tsv output/ --account=def-yanyan-ab \
-#       --gpus=nvidia_h100_80gb_hbm3_2g.20gb:1
+#       --gpus=h100:1 --mem=32G --cpus-per-task=8
 # =============================================================================
 
 set -euo pipefail
@@ -42,11 +46,11 @@ usage() {
     echo "Environment (set before submit, exported via --export=ALL):"
     echo "  export PROAFFINITY_VENV=\$HOME/proaffinity-env"
     echo ""
-    echo "Examples (Rorqual / Alliance H100):"
+    echo "Examples (Rorqual / Alliance H100 MIG):"
     echo "  $0 my_pdbs.tsv"
     echo "  $0 my_pdbs.tsv results/run1 --account=def-yanyan-ab"
-    echo "  $0 my_pdbs.tsv output/ --account=def-yanyan-ab --time=02:00:00"
-    echo "  $0 my_pdbs.tsv output/ --account=def-yanyan-ab --gpus=nvidia_h100_80gb_hbm3_2g.20gb:1"
+    echo "  PROAFFINITY_ARRAY_CONCURRENCY=1 $0 my_pdbs.tsv"
+    echo "  $0 my_pdbs.tsv output/ --account=def-yanyan-ab --gpus=h100:1 --mem=32G"
     exit 1
 }
 
@@ -85,18 +89,26 @@ if [ "$TOTAL" -eq 0 ]; then
 fi
 
 # --- submit ------------------------------------------------------------
+ARRAY_CONCURRENCY="${PROAFFINITY_ARRAY_CONCURRENCY:-2}"
+if [[ "$ARRAY_CONCURRENCY" =~ ^[0-9]+$ ]] && [ "$ARRAY_CONCURRENCY" -gt 0 ]; then
+    ARRAY_SPEC="1-${TOTAL}%${ARRAY_CONCURRENCY}"
+else
+    ARRAY_SPEC="1-${TOTAL}"
+fi
+
 echo "=============================================="
 echo " ProAffinity-GNN SLURM Batch Submission"
 echo "=============================================="
 echo " Index file:  $INDEX_FILE"
 echo " Entries:     $TOTAL"
 echo " Output dir:  $OUTPUT_DIR"
-echo " Array spec:  1-${TOTAL}"
+echo " Array spec:  $ARRAY_SPEC"
+echo " Resources:   20 GB H100 MIG, 4 CPU, 16G mem, 30 min per task"
 echo "=============================================="
 echo ""
 
 JOB_ID=$(sbatch \
-    --array="1-${TOTAL}" \
+    --array="$ARRAY_SPEC" \
     --job-name="proaffinity" \
     --account=def-yanyan-ab \
     "$@" \
