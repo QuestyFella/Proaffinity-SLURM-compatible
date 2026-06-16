@@ -47,9 +47,16 @@ OUTPUT_DIR="$(cd "$OUTPUT_DIR" && pwd)"
 
 # --- resolve project paths ---------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+INDEX_DIR="$(dirname "$INDEX_FILE")"
+if [ "$(basename "$INDEX_DIR")" = "data" ] && [ -d "${INDEX_DIR}/pdb" ]; then
+    PROJECT_DIR="$(dirname "$INDEX_DIR")"
+elif [ -n "${SLURM_SUBMIT_DIR:-}" ] && [ -d "${SLURM_SUBMIT_DIR}/data/pdb" ]; then
+    PROJECT_DIR="${SLURM_SUBMIT_DIR}"
+else
+    PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+fi
 INFERENCE_DIR="${PROJECT_DIR}/ProAffinity-GNN_inference"
-PREDICT_ONE="${SCRIPT_DIR}/predict_one.sh"
+PREDICT_ONE="${PROJECT_DIR}/scripts/predict_one.sh"
 
 # --- load environment --------------------------------------------------
 echo "[task $TASK_ID] Loading conda environment..." >&2
@@ -127,10 +134,12 @@ resolve_pdb() {
     # Try extension suffixes
     [ -f "${f}.pdb" ] && echo "${f}.pdb" && return 0
     [ -f "${f}.ent.pdb" ] && echo "${f}.ent.pdb" && return 0
-    # Relative to index file directory
+    # Relative to index file directory (index often lives in data/)
     [ -f "${dir}/${f}" ] && echo "${dir}/${f}" && return 0
     [ -f "${dir}/${f}.pdb" ] && echo "${dir}/${f}.pdb" && return 0
     [ -f "${dir}/${f}.ent.pdb" ] && echo "${dir}/${f}.ent.pdb" && return 0
+    [ -f "${dir}/pdb/${f}.pdb" ] && echo "${dir}/pdb/${f}.pdb" && return 0
+    [ -f "${dir}/pdb/${f}.ent.pdb" ] && echo "${dir}/pdb/${f}.ent.pdb" && return 0
     # PROJECT_DIR-relative (for bare names and relative paths when running from any CWD)
     [ -f "${proj}/${f}" ] && echo "${proj}/${f}" && return 0
     [ -f "${proj}/${f}.pdb" ] && echo "${proj}/${f}.pdb" && return 0

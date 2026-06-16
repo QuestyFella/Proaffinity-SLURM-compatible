@@ -42,6 +42,17 @@ TASK_ID="${SLURM_ARRAY_TASK_ID:-1}"
 mkdir -p "$OUTPUT_DIR"
 OUTPUT_DIR="$(cd "$OUTPUT_DIR" && pwd)"
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INDEX_DIR="$(dirname "$INDEX_FILE")"
+# Prefer repo root inferred from index path (data/index.tsv → parent) or SLURM submit dir
+if [ "$(basename "$INDEX_DIR")" = "data" ] && [ -d "${INDEX_DIR}/pdb" ]; then
+    PROJECT_DIR="$(dirname "$INDEX_DIR")"
+elif [ -n "${SLURM_SUBMIT_DIR:-}" ] && [ -d "${SLURM_SUBMIT_DIR}/data/pdb" ]; then
+    PROJECT_DIR="${SLURM_SUBMIT_DIR}"
+else
+    PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+fi
+
 # --- read the assigned line from the index file ------------------------
 LINE_COUNT=$(awk 'END { print NR }' "$INDEX_FILE")
 if [ "$TASK_ID" -gt "$LINE_COUNT" ]; then
@@ -82,9 +93,6 @@ fi
 NORMALISED_SPEC="$CHAIN_SPEC"
 
 # --- handle relative / bare-name paths in index file -------------------
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-
 resolve_pdb() {
     local f="$1"
     local dir="$2"
@@ -94,10 +102,12 @@ resolve_pdb() {
     # Try extension suffixes
     [ -f "${f}.pdb" ] && echo "${f}.pdb" && return 0
     [ -f "${f}.ent.pdb" ] && echo "${f}.ent.pdb" && return 0
-    # Relative to index file directory
+    # Relative to index file directory (index often lives in data/)
     [ -f "${dir}/${f}" ] && echo "${dir}/${f}" && return 0
     [ -f "${dir}/${f}.pdb" ] && echo "${dir}/${f}.pdb" && return 0
     [ -f "${dir}/${f}.ent.pdb" ] && echo "${dir}/${f}.ent.pdb" && return 0
+    [ -f "${dir}/pdb/${f}.pdb" ] && echo "${dir}/pdb/${f}.pdb" && return 0
+    [ -f "${dir}/pdb/${f}.ent.pdb" ] && echo "${dir}/pdb/${f}.ent.pdb" && return 0
     # PROJECT_DIR-relative (for bare names and relative paths when running from any CWD)
     [ -f "${proj}/${f}" ] && echo "${proj}/${f}" && return 0
     [ -f "${proj}/${f}.pdb" ] && echo "${proj}/${f}.pdb" && return 0
@@ -111,7 +121,6 @@ resolve_pdb() {
     return 1
 }
 
-INDEX_DIR="$(dirname "$INDEX_FILE")"
 PDB_FILE=$(resolve_pdb "$PDB_FILE" "$INDEX_DIR" "$PROJECT_DIR" || true)
 
 echo "[test $TASK_ID] Validating: $PDB_FILE  chains: $CHAIN_SPEC (raw: $CHAIN_SPEC_RAW)" >&2
