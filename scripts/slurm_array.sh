@@ -70,11 +70,13 @@ echo "[task $TASK_ID] Loading Python environment..." >&2
 source "${PROJECT_DIR}/scripts/activate_env.sh"
 
 # HuggingFace: use login-node cache only (compute nodes have no internet)
+# Model lands in $HF_HOME/models--* when TRANSFORMERS_CACHE=$HF_HOME (not under hub/)
 export HF_HOME="${HF_HOME:-${HOME}/.cache/huggingface}"
-export TRANSFORMERS_CACHE="${HF_HOME}"
+export HUGGINGFACE_HUB_CACHE="${HUGGINGFACE_HUB_CACHE:-${HF_HOME}}"
+export TRANSFORMERS_CACHE="${TRANSFORMERS_CACHE:-${HF_HOME}}"
 export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
-echo "[task $TASK_ID] HF_HOME=$HF_HOME" >&2
+echo "[task $TASK_ID] HF_HOME=$HF_HOME HUGGINGFACE_HUB_CACHE=$HUGGINGFACE_HUB_CACHE" >&2
 python -c "from transformers import AutoTokenizer; AutoTokenizer.from_pretrained('facebook/esm2_t33_650M_UR50D', local_files_only=True); print('[task ${TASK_ID}] ESM-2 cache OK')" >&2 \
     || { echo "[task $TASK_ID] FATAL: ESM-2 not cached at HF_HOME=$HF_HOME — download on login node first" >&2; exit 10; }
 

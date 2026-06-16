@@ -126,7 +126,8 @@ cd "$INFERENCE_DIR"
 
 # Use cached HuggingFace models on compute nodes (no internet on Rorqual)
 export HF_HOME="${HF_HOME:-${HOME}/.cache/huggingface}"
-export TRANSFORMERS_CACHE="${HF_HOME}"
+export HUGGINGFACE_HUB_CACHE="${HUGGINGFACE_HUB_CACHE:-${HF_HOME}}"
+export TRANSFORMERS_CACHE="${TRANSFORMERS_CACHE:-${HF_HOME}}"
 export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
 
