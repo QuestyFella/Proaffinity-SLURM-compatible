@@ -58,29 +58,16 @@ fi
 INFERENCE_DIR="${PROJECT_DIR}/ProAffinity-GNN_inference"
 PREDICT_ONE="${PROJECT_DIR}/scripts/predict_one.sh"
 
+# Alliance modules (ADFR for PDB→PDBQT on custom structures)
+if command -v module &>/dev/null; then
+    module load StdEnv/2023 2>/dev/null || true
+    module load adfrsuite 2>/dev/null || module load ADFRsuite 2>/dev/null || true
+fi
+
 # --- load environment --------------------------------------------------
-echo "[task $TASK_ID] Loading conda environment..." >&2
-
-# Try to locate conda — adjust CONDA_BASE if needed
-CONDA_BASE="${CONDA_BASE:-${HOME}/anaconda3}"
-if [ -f "${CONDA_BASE}/etc/profile.d/conda.sh" ]; then
-    source "${CONDA_BASE}/etc/profile.d/conda.sh"
-    conda activate python3.8
-elif command -v conda &>/dev/null; then
-    # conda is on PATH but may not be initialised in non-interactive shell
-    eval "$(conda shell.bash hook)"
-    conda activate python3.8
-else
-    echo "[task $TASK_ID] WARNING: conda not found — assuming environment is already active" >&2
-fi
-
-# Verify key dependencies are available
-python -c "import torch; print(f'PyTorch {torch.__version__}  CUDA={torch.cuda.is_available()}')" >&2
-if ! python -c "import torch; assert torch.cuda.is_available(), 'CUDA not available'" 2>/dev/null; then
-    echo "[task $TASK_ID] FATAL: CUDA not available — ESM-2 650M on CPU will OOM or timeout" >&2
-    exit 9
-fi
-python -c "import torch_geometric; print(f'PyG {torch_geometric.__version__}')" >&2
+echo "[task $TASK_ID] Loading Python environment..." >&2
+# shellcheck disable=SC1091
+source "${PROJECT_DIR}/scripts/activate_env.sh"
 
 # --- read the assigned line from the index file ------------------------
 LINE_COUNT=$(awk 'END { print NR }' "$INDEX_FILE")

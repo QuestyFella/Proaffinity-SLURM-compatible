@@ -15,8 +15,8 @@
 #   Exit code 0 on success, non-zero on failure.
 #
 # Dependencies:
-#   - ADFR suite (prepare_receptor on PATH or set $ADFR_PREPARE_RECEPTOR)
-#   - conda environment 'python3.8' (set $CONDA_ENV to override)
+#   - ADFR prepare_receptor (or pre-built data/pdbqt/*_atom_processed.pdbqt)
+#   - Python env with torch, torch_geometric, transformers (see scripts/activate_env.sh)
 #   - ProAffinity-GNN_inference/ directory with model.pkl
 # =============================================================================
 
@@ -27,18 +27,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 INFERENCE_DIR="${PROJECT_DIR}/ProAffinity-GNN_inference"
 
-ADFR_PREPARE_RECEPTOR="${ADFR_PREPARE_RECEPTOR:-prepare_receptor}"
-CONDA_ENV="${CONDA_ENV:-python3.8}"
-CONDA_BASE="${CONDA_BASE:-${HOME}/anaconda3}"
+ADFR_PREPARE_RECEPTOR="${ADFR_PREPARE_RECEPTOR:-}"
 
-# --- activate conda environment (for standalone use) -------------------
-if [ -f "${CONDA_BASE}/etc/profile.d/conda.sh" ]; then
-    source "${CONDA_BASE}/etc/profile.d/conda.sh"
-    conda activate "$CONDA_ENV" 2>/dev/null || true
-elif command -v conda &>/dev/null; then
-    eval "$(conda shell.bash hook)" 2>/dev/null || true
-    conda activate "$CONDA_ENV" 2>/dev/null || true
-fi
+# --- activate Python environment ---------------------------------------
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/activate_env.sh"
 
 # --- usage -------------------------------------------------------------
 usage() {
@@ -63,26 +56,67 @@ fi
 
 # --- resolve paths -----------------------------------------------------
 PDB_FILE="$(realpath "$PDB_FILE")"
-PDB_BASENAME="$(basename "$PDB_FILE" .pdb)"
+PDB_BASENAME="$(basename "$PDB_FILE")"
+PDB_ID="${PDB_BASENAME%.pdb}"
+PDB_ID="${PDB_ID%.ent}"
+PDB_ID="${PDB_ID,,}"
 WORK_DIR="$(mktemp -d -t proaffinity_XXXXXX)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
 PDBQT_FILE="${WORK_DIR}/${PDB_BASENAME}.pdbqt"
+USE_EXISTING_PDBQT=""
+
+# Pre-built PDBQT shipped with the repo (e.g. data/pdbqt/1a22_atom_processed.pdbqt)
+for candidate in \
+    "${PROJECT_DIR}/data/pdbqt/${PDB_ID}_atom_processed.pdbqt" \
+    "${PROJECT_DIR}/data/pdbqt/${PDB_ID}.pdbqt"; do
+    if [ -s "$candidate" ]; then
+        PDBQT_FILE="$candidate"
+        USE_EXISTING_PDBQT=1
+        echo "[predict_one] Using pre-built PDBQT: $PDBQT_FILE" >&2
+        break
+    fi
+done
+
+_find_prepare_receptor() {
+    local pr="${ADFR_PREPARE_RECEPTOR:-prepare_receptor}"
+    if command -v "$pr" &>/dev/null; then
+        echo "$pr"
+        return 0
+    fi
+    if [ -n "${HPC_ADFRSUITE_BIN:-}" ] && [ -x "${HPC_ADFRSUITE_BIN}/prepare_receptor" ]; then
+        echo "${HPC_ADFRSUITE_BIN}/prepare_receptor"
+        return 0
+    fi
+    if command -v module &>/dev/null; then
+        module load StdEnv/2023 2>/dev/null || true
+        module load adfrsuite 2>/dev/null || module load ADFRsuite 2>/dev/null || true
+        if command -v prepare_receptor &>/dev/null; then
+            echo prepare_receptor
+            return 0
+        fi
+    fi
+    return 1
+}
 
 # --- step 1: PDB → PDBQT (ADFR prepare_receptor) ----------------------
-echo "[predict_one] Converting PDB → PDBQT: $PDB_FILE" >&2
+if [ -z "$USE_EXISTING_PDBQT" ]; then
+    echo "[predict_one] Converting PDB → PDBQT: $PDB_FILE" >&2
 
-if ! command -v "$ADFR_PREPARE_RECEPTOR" &>/dev/null; then
-    echo "ERROR: ADFR prepare_receptor not found ('$ADFR_PREPARE_RECEPTOR')." >&2
-    echo "       Install ADFR or set ADFR_PREPARE_RECEPTOR to the full path." >&2
-    exit 3
-fi
+    if ! ADFR_PREPARE_RECEPTOR="$(_find_prepare_receptor || true)"; then
+        echo "ERROR: ADFR prepare_receptor not found." >&2
+        echo "  On Rorqual try: module spider adfrsuite" >&2
+        echo "  Then:           module load adfrsuite" >&2
+        echo "  Or set:         export ADFR_PREPARE_RECEPTOR=/path/to/prepare_receptor" >&2
+        exit 3
+    fi
 
-"$ADFR_PREPARE_RECEPTOR" -r "$PDB_FILE" -A hydrogens -o "$PDBQT_FILE" 2>&1 | tail -5 >&2
+    "$ADFR_PREPARE_RECEPTOR" -r "$PDB_FILE" -A hydrogens -o "$PDBQT_FILE" 2>&1 | tail -5 >&2
 
-if [ ! -s "$PDBQT_FILE" ]; then
-    echo "ERROR: prepare_receptor produced an empty PDBQT file." >&2
-    exit 4
+    if [ ! -s "$PDBQT_FILE" ]; then
+        echo "ERROR: prepare_receptor produced an empty PDBQT file." >&2
+        exit 4
+    fi
 fi
 
 # --- step 2: run ProAffinity-GNN inference -----------------------------
