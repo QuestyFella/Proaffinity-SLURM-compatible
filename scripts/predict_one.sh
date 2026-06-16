@@ -124,12 +124,20 @@ echo "[predict_one] Running GNN inference on chains: $CHAIN_SPEC" >&2
 
 cd "$INFERENCE_DIR"
 
+# Use cached HuggingFace models on compute nodes (no internet on Rorqual)
+export HF_HOME="${HF_HOME:-${HOME}/.cache/huggingface}"
+export HF_HUB_OFFLINE=1
+export TRANSFORMERS_OFFLINE=1
+
+# compatible script remaps PyG 2.4+ state_dict keys (lin_src/lin_dst → lin)
+INFERENCE_SCRIPT="${INFERENCE_SCRIPT:-ProAffinity-GNN_inference_compatible.py}"
+
 # The inference script prints "pKa: <value>" to stdout and also writes
 # a result file. We capture stdout and extract the pKa line.
 STDOUT_LOG="${WORK_DIR}/inference_stdout.txt"
 
 set +e
-python ProAffinity-GNN_inference.py -f "$PDBQT_FILE" -c "$CHAIN_SPEC" > "$STDOUT_LOG" 2>&1
+python "$INFERENCE_SCRIPT" -f "$PDBQT_FILE" -c "$CHAIN_SPEC" > "$STDOUT_LOG" 2>&1
 RC=$?
 set -e
 

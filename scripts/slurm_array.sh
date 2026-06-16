@@ -69,6 +69,11 @@ echo "[task $TASK_ID] Loading Python environment..." >&2
 # shellcheck disable=SC1091
 source "${PROJECT_DIR}/scripts/activate_env.sh"
 
+# HuggingFace: use login-node cache only (compute nodes have no internet)
+export HF_HOME="${HF_HOME:-${HOME}/.cache/huggingface}"
+export HF_HUB_OFFLINE=1
+export TRANSFORMERS_OFFLINE=1
+
 # --- read the assigned line from the index file ------------------------
 LINE_COUNT=$(awk 'END { print NR }' "$INDEX_FILE")
 if [ "$TASK_ID" -gt "$LINE_COUNT" ]; then
