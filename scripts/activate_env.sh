@@ -12,13 +12,14 @@ _activate_env_die() {
 
 _activate_env_check_python() {
     local label="${1:-}"
-    python -c "import torch; print(f'[{label}] PyTorch {torch.__version__}  CUDA={torch.cuda.is_available()}')" >&2 \
+    echo "[${label}] checking Python dependencies..." >&2
+    python -c 'import torch; print("PyTorch", torch.__version__, "CUDA=", torch.cuda.is_available())' >&2 \
         || _activate_env_die "torch not importable — install PyTorch in your environment"
-    python -c "import torch; assert torch.cuda.is_available()" 2>/dev/null \
+    python -c 'import torch; assert torch.cuda.is_available()' 2>/dev/null \
         || _activate_env_die "CUDA not available — inference needs a GPU node with CUDA-enabled PyTorch" 9
-    python -c "import torch_geometric; print(f'[{label}] PyG {torch_geometric.__version__}')" >&2 \
+    python -c 'import torch_geometric; print("PyG", torch_geometric.__version__)' >&2 \
         || _activate_env_die "torch_geometric not installed — pip install torch-geometric (see environment.yml)"
-    python -c "import transformers; print(f'[{label}] transformers {transformers.__version__}')" >&2 \
+    python -c 'import transformers; print("transformers", transformers.__version__)' >&2 \
         || _activate_env_die "transformers not installed — pip install transformers"
 }
 
