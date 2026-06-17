@@ -34,6 +34,27 @@ Example: `016_5L6Y_antibody_chainH/ranked_0.pdb`. Folders that do not match this
 
 **Pre-built PDBQT** files must be named `data/pdbqt/<pdb_id_lowercase>_atom_processed.pdbqt` for inference to skip on-the-fly conversion.
 
+## HPC configuration
+
+SLURM submit scripts require an allocation account. Set it once per session:
+
+```bash
+export PROAFFINITY_SLURM_ACCOUNT=def-yourgroup-ab
+```
+
+Or pass `--account=def-yourgroup-ab` on the `submit_array.sh` / `submit_test.sh` command line (overrides the env var).
+
+Other useful environment variables:
+
+| Variable | Purpose |
+|----------|---------|
+| `PROAFFINITY_VENV` | Path to the Python virtualenv (default: `$HOME/proaffinity-env` if present). |
+| `PROAFFINITY_ARRAY_CONCURRENCY` | Max concurrent inference array tasks (default `2`). |
+| `PROAFFINITY_TEST_CONCURRENCY` | Max concurrent validation array tasks (default `10`). |
+| `HF_HOME` | HuggingFace model cache (default `$HOME/.cache/huggingface`). Pre-download ESM-2 on a login node before GPU jobs. |
+
+Default GPU resources in `slurm_array.sh` target Alliance Rorqual H100 MIG (`nvidia_h100_80gb_hbm3_2g.20gb`). Override with extra `sbatch` args, e.g. `--gpus=h100:1 --mem=32G`.
+
 ## Index file format
 
 Batch scripts read a TSV with one entry per line (no header):
@@ -61,7 +82,8 @@ pdb_file<TAB>chain_spec
 | `scripts/submit_array.sh` | **Launcher** for the inference array job. Counts index lines, submits `sbatch --array=1-N%2` (2 concurrent tasks by default), and prints monitor/merge commands. Extra `sbatch` args (account, GPUs, time) are passed through. |
 
 ```bash
-./scripts/submit_array.sh data/index_proteins.txt results/run1 --account=def-yanyan-ab
+export PROAFFINITY_SLURM_ACCOUNT=def-yourgroup-ab
+./scripts/submit_array.sh data/index_proteins.txt results/run1
 ```
 
 Set `PROAFFINITY_ARRAY_CONCURRENCY` to change how many tasks run at once (default `2`).
@@ -103,6 +125,7 @@ python scripts/collect_results.py results/run1 -o results/run1/summary.csv
 **AlphaFold models in `proteins/`:**
 
 ```bash
+export PROAFFINITY_SLURM_ACCOUNT=def-yourgroup-ab
 python scripts/prepare_proteins.py
 ./scripts/prebuild_pdbqt.sh data/index_proteins.txt   # optional, on login node
 ./scripts/submit_test.sh data/index_proteins.txt
@@ -113,6 +136,7 @@ python scripts/collect_results.py results/proteins_run1 -i data/index_proteins.t
 **AlphaFold3 models in `AF3Proteins/`:**
 
 ```bash
+export PROAFFINITY_SLURM_ACCOUNT=def-yourgroup-ab
 python scripts/prepare_af3_proteins.py --batches batch1
 ./scripts/prebuild_pdbqt.sh data/index_af3_batch1.txt   # optional
 ./scripts/submit_test.sh data/index_af3_batch1.txt

@@ -22,8 +22,7 @@
 #SBATCH --output=slurm-infer_%A_%a.out
 #SBATCH --error=slurm-infer_%A_%a.err
 #SBATCH --export=ALL
-
-#SBATCH --account=def-yanyan-ab
+# Account: set via submit_array.sh (PROAFFINITY_SLURM_ACCOUNT or --account=...)
 # Larger options if the 20 GB MIG slice is not enough:
 ##SBATCH --gpus=h100:1
 ##SBATCH --gpus=nvidia_h100_80gb_hbm3_3g.40gb:1

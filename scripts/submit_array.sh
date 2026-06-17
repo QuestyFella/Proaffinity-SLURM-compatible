@@ -18,15 +18,15 @@
 #   # Custom output directory
 #   ./scripts/submit_array.sh my_pdbs.tsv results/run1
 #
-#   # Rorqual: account is required; extra sbatch args override #SBATCH in slurm_array.sh
-#   ./scripts/submit_array.sh my_pdbs.tsv output/ --account=def-yanyan-ab --time=02:00:00
+#   export PROAFFINITY_SLURM_ACCOUNT=def-yourgroup-ab   # or pass --account= on the command line
+#   ./scripts/submit_array.sh my_pdbs.tsv output/ --time=02:00:00
 #
 #   # Default uses a 20 GB H100 MIG slice and runs at most 2 tasks concurrently.
 #   # Override concurrency if needed:
 #   PROAFFINITY_ARRAY_CONCURRENCY=1 ./scripts/submit_array.sh my_pdbs.tsv
 #
 #   # Override to a full H100 if the MIG slice is not enough:
-#   ./scripts/submit_array.sh my_pdbs.tsv output/ --account=def-yanyan-ab \
+#   ./scripts/submit_array.sh my_pdbs.tsv output/ \
 #       --gpus=h100:1 --mem=32G --cpus-per-task=8
 # =============================================================================
 
@@ -44,13 +44,15 @@ usage() {
     echo "  sbatch args    Passed through to sbatch (--account, --gpus, --time, etc.)"
     echo ""
     echo "Environment (set before submit, exported via --export=ALL):"
+    echo "  export PROAFFINITY_SLURM_ACCOUNT=def-yourgroup-ab   # required unless --account= passed"
     echo "  export PROAFFINITY_VENV=\$HOME/proaffinity-env"
     echo ""
-    echo "Examples (Rorqual / Alliance H100 MIG):"
+    echo "Examples (Alliance H100 MIG on Rorqual):"
+    echo "  export PROAFFINITY_SLURM_ACCOUNT=def-yourgroup-ab"
     echo "  $0 my_pdbs.tsv"
-    echo "  $0 my_pdbs.tsv results/run1 --account=def-yanyan-ab"
+    echo "  $0 my_pdbs.tsv results/run1"
     echo "  PROAFFINITY_ARRAY_CONCURRENCY=1 $0 my_pdbs.tsv"
-    echo "  $0 my_pdbs.tsv output/ --account=def-yanyan-ab --gpus=h100:1 --mem=32G"
+    echo "  $0 my_pdbs.tsv output/ --gpus=h100:1 --mem=32G"
     exit 1
 }
 
@@ -107,10 +109,26 @@ echo " Resources:   20 GB H100 MIG, 4 CPU, 16G mem, 30 min per task"
 echo "=============================================="
 echo ""
 
+has_account=false
+for arg in "$@"; do
+    case "$arg" in
+        --account|--account=*) has_account=true ;;
+    esac
+done
+
+SBATCH_ACCOUNT_ARGS=()
+if ! $has_account; then
+    if [ -z "${PROAFFINITY_SLURM_ACCOUNT:-}" ]; then
+        echo "ERROR: set PROAFFINITY_SLURM_ACCOUNT or pass --account=<allocation>" >&2
+        exit 5
+    fi
+    SBATCH_ACCOUNT_ARGS=(--account="${PROAFFINITY_SLURM_ACCOUNT}")
+fi
+
 JOB_ID=$(sbatch \
     --array="$ARRAY_SPEC" \
     --job-name="proaffinity" \
-    --account=def-yanyan-ab \
+    "${SBATCH_ACCOUNT_ARGS[@]}" \
     "$@" \
     "$SLURM_SCRIPT" "$INDEX_FILE" "$OUTPUT_DIR" \
     | awk '{print $NF}')
@@ -131,8 +149,8 @@ echo "Results will be in: $OUTPUT_DIR/"
 echo "  Per-task logs:   $OUTPUT_DIR/task_*.txt"
 echo "  Per-task TSVs:   $OUTPUT_DIR/task_*.tsv"
 echo ""
-echo "After all jobs finish, merge with:"
-echo "  (head -1 \"$OUTPUT_DIR/task_1.tsv\" && tail -q -n+2 \"$OUTPUT_DIR\"/task_*.tsv) > \"$OUTPUT_DIR/results.tsv\""
+echo "After all jobs finish, collect results with:"
+echo "  python scripts/collect_results.py \"$OUTPUT_DIR\" -i \"$INDEX_FILE\""
 echo ""
 echo "Cancel with:"
 echo "  scancel $JOB_ID"

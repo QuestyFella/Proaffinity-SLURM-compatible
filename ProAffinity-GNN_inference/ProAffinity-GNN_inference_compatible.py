@@ -359,7 +359,6 @@ aminoacid_abbr = {'GLY': 'G', 'ALA': 'A', 'VAL': 'V', 'LEU': 'L', 'ILE': 'I', 'P
 # %%
 
 import argparse
-# pdbfile = '/data/a/zhiyuan/dataset/PP/pdbqt_H_processed/1a2k_atom_processed.pdbqt'
 # chainindex = [['A', 'B'], ['C']]
 
 my_arg = argparse.ArgumentParser('My argument parser')
@@ -510,7 +509,6 @@ info_save2 = (intra_pairsB, edge_index2, seqB)
 
 # print(len(info_save2[0]))
 # print(info_save2[1].shape)
-# filename = '/data/a/zhiyuan/ProAffinity_application/graph_construct/inter_graph_dis_6/' + pdb.split('_')[2]
 # f = open(filename, 'wb')              
 # pickle.dump(info_save, f)
 # f.close()
@@ -562,7 +560,6 @@ inter_distance = 6
 intra_distance = 3.5
 
 # %%
-# info = pickle.load(open('/data/a/zhiyuan/dataset/PP/revision/graph_construct/inter_graph_dis_' + str(inter_distance) + '/' + pdb, 'rb'))
 
 seqA, seqB = get_fasta_seq(info_save[2])
 output1_list = []
@@ -644,7 +641,6 @@ except Exception as e:
     print(e)
 
 data = Data(x=x, edge_index=edge_index, edge_attr=edge_feature)
-# save_path = '/data/a/zhiyuan/dataset/PP/revision/graph_info/inter_dis_' +  str(inter_distance) + '/' + pdb
 
 # with open(save_path, 'wb') as f_save:
 #     pickle.dump(data, f_save)
@@ -724,7 +720,6 @@ except Exception as e:
 
 data1 = Data(x=x_indi_1, edge_index=edge_index, edge_attr=edge_feature)
 # print(data1)
-# save_path = '/data/a/zhiyuan/dataset/PP/revision/graph_info/individual_dis_' +  str(intra_distance) + '/' + pdb
 
 # with open(save_path, 'wb') as f_save:
 #     pickle.dump(data, f_save)
@@ -800,7 +795,6 @@ except Exception as e:
 
 
 data2 = Data(x=x_indi_2, edge_index=edge_index, edge_attr=edge_feature)
-# save_path = '/data/a/zhiyuan/dataset/PP/revision/graph_info/individual_dis_' +  str(intra_distance) + '/' + pdb
 
 # with open(save_path, 'wb') as f_save:
 #     pickle.dump(data, f_save)

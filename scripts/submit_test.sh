@@ -18,8 +18,8 @@
 #   # Custom output directory
 #   ./scripts/submit_test.sh my_pdbs.tsv test_results/
 #
-#   # Rorqual: account is required even for CPU-only validation jobs
-#   ./scripts/submit_test.sh my_pdbs.tsv test_results/ --account=def-yanyan-ab
+#   export PROAFFINITY_SLURM_ACCOUNT=def-yourgroup-ab   # or pass --account= on the command line
+#   ./scripts/submit_test.sh my_pdbs.tsv test_results/
 # =============================================================================
 
 set -euo pipefail
@@ -35,9 +35,13 @@ usage() {
     echo "  output_dir     Where test results go (default: test_results/<timestamp>)"
     echo "  sbatch args    Passed through to sbatch"
     echo ""
-    echo "Examples (Rorqual / Alliance):"
-    echo "  $0 index.tsv --account=def-yanyan-ab"
-    echo "  $0 data/index_example.txt test_results/ --account=def-yanyan-ab"
+    echo "Environment:"
+    echo "  export PROAFFINITY_SLURM_ACCOUNT=def-yourgroup-ab   # required unless --account= passed"
+    echo ""
+    echo "Examples:"
+    echo "  export PROAFFINITY_SLURM_ACCOUNT=def-yourgroup-ab"
+    echo "  $0 index.tsv"
+    echo "  $0 data/index_example.txt test_results/"
     echo "  PROAFFINITY_TEST_CONCURRENCY=5 $0 data/index_proteins.txt"
     exit 1
 }
@@ -95,10 +99,26 @@ echo " Resources:   1 CPU, 1G mem, 3 min (no GPU)"
 echo "=============================================="
 echo ""
 
+has_account=false
+for arg in "$@"; do
+    case "$arg" in
+        --account|--account=*) has_account=true ;;
+    esac
+done
+
+SBATCH_ACCOUNT_ARGS=()
+if ! $has_account; then
+    if [ -z "${PROAFFINITY_SLURM_ACCOUNT:-}" ]; then
+        echo "ERROR: set PROAFFINITY_SLURM_ACCOUNT or pass --account=<allocation>" >&2
+        exit 5
+    fi
+    SBATCH_ACCOUNT_ARGS=(--account="${PROAFFINITY_SLURM_ACCOUNT}")
+fi
+
 JOB_ID=$(sbatch \
     --array="$ARRAY_SPEC" \
     --job-name="proaffinity-test" \
-    --account=def-yanyan-ab \
+    "${SBATCH_ACCOUNT_ARGS[@]}" \
     "$@" \
     "$TEST_SCRIPT" "$INDEX_FILE" "$OUTPUT_DIR" \
     | awk '{print $NF}')

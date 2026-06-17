@@ -25,7 +25,7 @@
 #SBATCH --output=slurm-test_%A_%a.out
 #SBATCH --error=slurm-test_%A_%a.err
 #SBATCH --export=ALL
-#SBATCH --account=def-yanyan-ab
+# Account: set via submit_test.sh (PROAFFINITY_SLURM_ACCOUNT or --account=...)
 
 set -euo pipefail
 
