@@ -407,6 +407,12 @@ def main() -> None:
     args = parser.parse_args()
 
     batches = [b.strip() for b in args.batches.split(",") if b.strip()]
+    if args.output == DEFAULT_INDEX and len(batches) == 1:
+        batch_name = batches[0].lower()
+        if not batch_name.startswith("batch"):
+            batch_name = f"batch{batch_name}"
+        args.output = PROJECT_DIR / "data" / f"index_af3_{batch_name}.txt"
+
     entries = scan_af3_dir(args.af3_dir, batches)
     if not entries:
         print(f"ERROR: no AF3 folds found under {args.af3_dir}", file=sys.stderr)

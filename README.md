@@ -117,6 +117,7 @@ python scripts/collect_results.py results/run1 -o results/run1/summary.csv
 |--------|---------|
 | `scripts/prepare_proteins.py` | Merge per-chain AlphaFold models under `proteins/` into complex PDBs in `proteins/complexes/`, then write `data/index_proteins.txt` using only chains you modeled. |
 | `scripts/prepare_af3_proteins.py` | Convert AF3 CIF models under `AF3Proteins/AF3 Structure_batch*/` into PDBs in `AF3Proteins/complexes/`, then write `data/index_af3_batch<N>.txt`. |
+| `scripts/run_af3_batch.sh` | Convenience wrapper: `--prepare`, `--prebuild`, `--test`, `--infer`, `--collect` for one AF3 batch (batch2–batch4). |
 | `scripts/build_proteins_index.py` | Alternative index builder for **experimental** crystal structures: scans `proteins/` folder names, maps curated antibody/antigen chain pairs, and optionally downloads PDBs from RCSB into `proteins/pdb/` (`--download`). Prefer `prepare_proteins.py` for AlphaFold outputs. |
 | `scripts/prebuild_pdbqt.sh` | Pre-convert all PDBs in an index to `data/pdbqt/<id>_atom_processed.pdbqt` on a login node. Inference tasks then skip ADFR conversion, saving GPU job time. |
 
@@ -137,11 +138,37 @@ python scripts/collect_results.py results/proteins_run1 -i data/index_proteins.t
 
 ```bash
 export PROAFFINITY_SLURM_ACCOUNT=def-yourgroup-ab
-python scripts/prepare_af3_proteins.py --batches batch1
-./scripts/prebuild_pdbqt.sh data/index_af3_batch1.txt   # optional
-./scripts/submit_test.sh data/index_af3_batch1.txt
-./scripts/submit_array.sh data/index_af3_batch1.txt results/af3_batch1
-python scripts/collect_results.py results/af3_batch1 -i data/index_af3_batch1.txt
+export PROAFFINITY_VENV=$HOME/proaffinity-env
+export ADFR_PREPARE_RECEPTOR=$HOME/software/ADFRsuite/bin/prepare_receptor
+export HF_HOME=$HOME/.cache/huggingface
+export HUGGINGFACE_HUB_CACHE=$HF_HOME
+export TRANSFORMERS_CACHE=$HF_HOME
+
+# One batch at a time (batch1 already done):
+./scripts/run_af3_batch.sh batch2 --prepare --prebuild --test
+./scripts/run_af3_batch.sh batch2 --infer
+./scripts/run_af3_batch.sh batch2 --collect
+
+# Or step by step:
+python scripts/prepare_af3_proteins.py --batches batch2
+./scripts/prebuild_pdbqt.sh data/index_af3_batch2.txt
+./scripts/submit_test.sh data/index_af3_batch2.txt
+./scripts/submit_array.sh data/index_af3_batch2.txt results/af3_batch2
+python scripts/collect_results.py results/af3_batch2 -i data/index_af3_batch2.txt
+```
+
+| Batch | Index file | Complexes |
+|-------|------------|-----------|
+| batch1 | `data/index_af3_batch1.txt` | 23 |
+| batch2 | `data/index_af3_batch2.txt` | 21 |
+| batch3 | `data/index_af3_batch3.txt` | 35 |
+| batch4 | `data/index_af3_batch4.txt` | 19 |
+
+Before running on the cluster, rsync each batch folder from your Mac:
+
+```bash
+rsync -av "AF3Proteins/AF3 Structure_batch2/" \
+  user@cluster:.../AF3Proteins/AF3\ Structure_batch2/
 ```
 
 **Local batch (no SLURM):**
