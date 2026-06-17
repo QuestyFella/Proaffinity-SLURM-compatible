@@ -8,3 +8,4 @@ results/
 test_results/
 slurm-*.out
 slurm-*.err
+proaffinity.code-workspace
