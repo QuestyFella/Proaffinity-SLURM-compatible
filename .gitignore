@@ -2,3 +2,9 @@ __pycache__/
 .DS_Store
 proteins/
 AF3Proteins/
+
+# SLURM / inference outputs (regenerate with collect_results.py)
+results/
+test_results/
+slurm-*.out
+slurm-*.err

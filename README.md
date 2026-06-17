@@ -34,6 +34,18 @@ pdb_file<TAB>chain_spec
 
 Set `PROAFFINITY_ARRAY_CONCURRENCY` to change how many tasks run at once (default `2`).
 
+### Post-processing
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/collect_results.py` | Merge per-task `task_*.tsv` outputs from a SLURM run into a sorted CSV (`pdb_id`, `partner1`, `partner2`, `pka`, `status`, `elapsed_sec`). Chain specs are split into readable columns; pass `-i` to use the index file for partner names. |
+
+```bash
+python scripts/collect_results.py results/run1
+python scripts/collect_results.py results/run1 -i data/index_proteins.txt
+python scripts/collect_results.py results/run1 -o results/run1/summary.csv
+```
+
 ### SLURM input validation (CPU)
 
 | Script | Purpose |
@@ -70,8 +82,8 @@ python scripts/prepare_proteins.py
 python scripts/predict_batch.py -i data/index_proteins.txt -o results.tsv
 ```
 
-After a SLURM run finishes, merge per-task TSVs:
+After a SLURM run finishes, collect per-task TSVs into a readable CSV:
 
 ```bash
-(head -1 results/run1/task_1.tsv && tail -q -n+2 results/run1/task_*.tsv) > results/run1/results.tsv
+python scripts/collect_results.py results/run1 -i data/index_proteins.txt
 ```
