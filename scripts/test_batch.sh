@@ -119,6 +119,8 @@ resolve_pdb() {
     [ -f "${proj}/data/${f}.pdb" ] && echo "${proj}/data/${f}.pdb" && return 0
     [ -f "${proj}/proteins/complexes/${f}" ] && echo "${proj}/proteins/complexes/${f}" && return 0
     [ -f "${proj}/proteins/complexes/${f}.pdb" ] && echo "${proj}/proteins/complexes/${f}.pdb" && return 0
+    [ -f "${proj}/AF3Proteins/complexes/${f}" ] && echo "${proj}/AF3Proteins/complexes/${f}" && return 0
+    [ -f "${proj}/AF3Proteins/complexes/${f}.pdb" ] && echo "${proj}/AF3Proteins/complexes/${f}.pdb" && return 0
     echo "$f"
     return 1
 }
