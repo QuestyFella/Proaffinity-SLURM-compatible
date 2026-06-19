@@ -362,6 +362,14 @@ def pick_model(cif_files: list[Path], model: int) -> Path:
     return sorted(cif_files)[0]
 
 
+def relpath_for_display(path: Path, base: Path) -> str:
+    """Return path relative to base, or absolute path if roots differ (e.g. /scratch vs /home/.../scratch)."""
+    try:
+        return str(path.resolve().relative_to(base.resolve()))
+    except ValueError:
+        return str(path)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Prepare AF3Proteins for ProAffinity")
     parser.add_argument(
@@ -510,7 +518,7 @@ def main() -> None:
     args.output.write_text("\n".join(index_lines) + "\n")
     print(f"\nWrote {len(index_lines)} PDBs -> {args.complex_dir}", file=sys.stderr)
     print(f"Wrote index -> {args.output}", file=sys.stderr)
-    out_rel = args.output if not args.output.is_absolute() else args.output.relative_to(PROJECT_DIR)
+    out_rel = relpath_for_display(args.output, PROJECT_DIR)
     print(
         "\nNext steps:\n"
         f"  ./scripts/prebuild_pdbqt.sh {out_rel}\n"
