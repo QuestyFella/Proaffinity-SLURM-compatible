@@ -13,6 +13,7 @@ This script:
 Usage:
     python scripts/prepare_proteins.py
     python scripts/prepare_proteins.py --rank 0
+    python scripts/prepare_proteins.py --all-ranks
     python scripts/prepare_proteins.py --dry-run
 
 Then on Rorqual:
@@ -165,11 +166,25 @@ def main() -> None:
         help="AlphaFold ranked model index to use (default: 0)",
     )
     parser.add_argument(
+        "--all-ranks",
+        action="store_true",
+        help="Prepare all 5 AlphaFold ranks (0-4) as <pdb>_rank<N>.pdb per complex",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print planned merges without writing files",
     )
     args = parser.parse_args()
+
+    if args.all_ranks and args.rank != 0:
+        print("ERROR: use --all-ranks alone, not with --rank", file=sys.stderr)
+        sys.exit(1)
+
+    if args.all_ranks and args.output == DEFAULT_INDEX:
+        args.output = PROJECT_DIR / "data" / "index_proteins_allranks.txt"
+
+    rank_indices = list(range(5)) if args.all_ranks else [args.rank]
 
     groups = scan_proteins_dir(args.proteins_dir)
     if not groups:
@@ -179,7 +194,7 @@ def main() -> None:
     index_lines: list[str] = []
     skipped: list[str] = []
 
-    print(f"Preparing {len(groups)} complexes from {args.proteins_dir} (rank={args.rank}):", file=sys.stderr)
+    print(f"Preparing {len(groups)} complexes from {args.proteins_dir} (ranks={rank_indices}):", file=sys.stderr)
 
     for pdb_id in sorted(groups):
         entries = groups[pdb_id]
@@ -192,23 +207,29 @@ def main() -> None:
             continue
 
         spec = chain_spec(ab, ag)
-        rel_pdb = args.complex_dir.relative_to(PROJECT_DIR) / f"{pdb_id.lower()}.pdb"
-        dest = args.complex_dir / f"{pdb_id.lower()}.pdb"
 
-        try:
-            lines, _, _ = merge_complex(entries, args.rank)
-        except (FileNotFoundError, ValueError) as exc:
-            skipped.append(f"{pdb_id} ({exc})")
-            print(f"  SKIP {pdb_id}: {exc}", file=sys.stderr)
-            continue
+        for rank in rank_indices:
+            if args.all_ranks:
+                stem = f"{pdb_id.lower()}_rank{rank}"
+            else:
+                stem = pdb_id.lower()
+            rel_pdb = args.complex_dir.relative_to(PROJECT_DIR) / f"{stem}.pdb"
+            dest = args.complex_dir / f"{stem}.pdb"
 
-        print(f"  OK   {pdb_id}: {spec}  ({len(entries)} chains -> {rel_pdb})", file=sys.stderr)
+            try:
+                lines, _, _ = merge_complex(entries, rank)
+            except (FileNotFoundError, ValueError) as exc:
+                skipped.append(f"{pdb_id} rank {rank} ({exc})")
+                print(f"  SKIP {pdb_id} rank {rank}: {exc}", file=sys.stderr)
+                continue
 
-        if not args.dry_run:
-            args.complex_dir.mkdir(parents=True, exist_ok=True)
-            dest.write_text("\n".join(lines) + "\n")
+            print(f"  OK   {pdb_id} rank {rank}: {spec}  ({len(entries)} chains -> {rel_pdb})", file=sys.stderr)
 
-        index_lines.append(f"{rel_pdb}\t{spec}")
+            if not args.dry_run:
+                args.complex_dir.mkdir(parents=True, exist_ok=True)
+                dest.write_text("\n".join(lines) + "\n")
+
+            index_lines.append(f"{rel_pdb}\t{spec}")
 
     if skipped:
         print(f"\nSkipped {len(skipped)}:", file=sys.stderr)

@@ -18,8 +18,18 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = SCRIPT_DIR.parent
 
 
+RANK_MODEL_RE = re.compile(r"^(?P<pdb>[a-z0-9]+)_(?:model|rank)(?P<idx>\d+)$", re.I)
+
+
 def pdb_id_from_path(pdb_path: str) -> str:
     return Path(pdb_path).stem.lower()
+
+
+def split_pdb_and_rank(stem: str) -> tuple[str, int | str]:
+    match = RANK_MODEL_RE.match(stem.lower())
+    if match:
+        return match.group("pdb").upper(), int(match.group("idx"))
+    return stem.upper(), ""
 
 
 def elapsed_seconds(elapsed_str: str) -> int | str:
@@ -73,15 +83,17 @@ def collect_rows(output_dir: Path, index_specs: dict[str, str]) -> list[dict[str
     rows: list[dict[str, object]] = []
     for task_file in task_files:
         for pdb_path, chain_spec, pka, status, elapsed in parse_task_tsv(task_file):
-            pdb_id = pdb_id_from_path(pdb_path)
-            if pdb_id in seen:
+            stem = pdb_id_from_path(pdb_path)
+            if stem in seen:
                 continue
-            seen.add(pdb_id)
-            chains = index_specs.get(pdb_id, chain_spec)
+            seen.add(stem)
+            pdb_base, model_rank = split_pdb_and_rank(stem)
+            chains = index_specs.get(stem, index_specs.get(pdb_base.lower(), chain_spec))
             partner1, partner2 = split_chain_spec(chains)
             rows.append(
                 {
-                    "pdb_id": pdb_id.upper(),
+                    "pdb_id": pdb_base,
+                    "model_rank": model_rank,
                     "partner1": partner1,
                     "partner2": partner2,
                     "pka": round(float(pka), 3) if pka else "",
@@ -90,7 +102,7 @@ def collect_rows(output_dir: Path, index_specs: dict[str, str]) -> list[dict[str
                 }
             )
 
-    rows.sort(key=lambda row: str(row["pdb_id"]))
+    rows.sort(key=lambda row: (str(row["pdb_id"]), row["model_rank"] if row["model_rank"] != "" else -1))
     return rows
 
 
@@ -130,7 +142,7 @@ def main() -> None:
     with out_csv.open("w", newline="") as handle:
         writer = csv.DictWriter(
             handle,
-            fieldnames=["pdb_id", "partner1", "partner2", "pka", "status", "elapsed_sec"],
+            fieldnames=["pdb_id", "model_rank", "partner1", "partner2", "pka", "status", "elapsed_sec"],
         )
         writer.writeheader()
         writer.writerows(rows)

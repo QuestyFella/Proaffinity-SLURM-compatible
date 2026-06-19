@@ -15,6 +15,7 @@ This script:
 Usage:
     python scripts/prepare_af3_proteins.py --dry-run
     python scripts/prepare_af3_proteins.py --batches batch1
+    python scripts/prepare_af3_proteins.py --batches batch1 --all-models
     python scripts/prepare_af3_proteins.py --batches batch1 --overlap-only
     python scripts/prepare_af3_proteins.py --batches batch1,batch2,batch3,batch4
 
@@ -400,6 +401,11 @@ def main() -> None:
         help="AF3 model index to use (default: 0)",
     )
     parser.add_argument(
+        "--all-models",
+        action="store_true",
+        help="Prepare all 5 AF3 models (0-4) as <pdb>_model<N>.pdb per complex",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print planned work without writing files",
@@ -411,8 +417,14 @@ def main() -> None:
         batch_name = batches[0].lower()
         if not batch_name.startswith("batch"):
             batch_name = f"batch{batch_name}"
-        args.output = PROJECT_DIR / "data" / f"index_af3_{batch_name}.txt"
+        suffix = "_allmodels" if args.all_models else ""
+        args.output = PROJECT_DIR / "data" / f"index_af3_{batch_name}{suffix}.txt"
 
+    if args.all_models and args.model != 0:
+        print("ERROR: use --all-models alone, not with --model", file=sys.stderr)
+        sys.exit(1)
+
+    model_indices = list(range(5)) if args.all_models else [args.model]
     entries = scan_af3_dir(args.af3_dir, batches)
     if not entries:
         print(f"ERROR: no AF3 folds found under {args.af3_dir}", file=sys.stderr)
@@ -424,7 +436,7 @@ def main() -> None:
 
     print(
         f"Preparing AF3 complexes from {args.af3_dir} "
-        f"(batches={','.join(batches)}, model={args.model}, overlap_only={args.overlap_only}):",
+        f"(batches={','.join(batches)}, models={model_indices}, overlap_only={args.overlap_only}):",
         file=sys.stderr,
     )
 
@@ -450,29 +462,34 @@ def main() -> None:
         af3_labels = [chr(ord("A") + i) for i in range(len(sequences))]
         af3_to_pa = dict(zip(af3_labels, entity_chains))
 
-        cif_path = pick_model(entry["cif_files"], args.model)
-        rel_pdb = args.complex_dir.relative_to(PROJECT_DIR) / f"{pdb_id.lower()}.pdb"
-        dest = args.complex_dir / f"{pdb_id.lower()}.pdb"
+        for model_idx in model_indices:
+            cif_path = pick_model(entry["cif_files"], model_idx)
+            if args.all_models:
+                stem = f"{pdb_id.lower()}_model{model_idx}"
+            else:
+                stem = pdb_id.lower()
+            rel_pdb = args.complex_dir.relative_to(PROJECT_DIR) / f"{stem}.pdb"
+            dest = args.complex_dir / f"{stem}.pdb"
 
-        try:
-            lines = cif_to_pdb_lines(cif_path, af3_to_pa, pdb_id)
-        except (ValueError, OSError) as exc:
-            skipped.append(f"{pdb_id} ({exc})")
-            print(f"  SKIP {pdb_id}: {exc}", file=sys.stderr)
-            continue
+            try:
+                lines = cif_to_pdb_lines(cif_path, af3_to_pa, pdb_id)
+            except (ValueError, OSError) as exc:
+                skipped.append(f"{pdb_id} model {model_idx} ({exc})")
+                print(f"  SKIP {pdb_id} model {model_idx}: {exc}", file=sys.stderr)
+                continue
 
-        n_atoms = sum(1 for ln in lines if ln.startswith("ATOM"))
-        print(
-            f"  OK   {pdb_id} [{batch}]: {spec}  map={af3_to_pa}  "
-            f"({n_atoms} atoms -> {rel_pdb})",
-            file=sys.stderr,
-        )
+            n_atoms = sum(1 for ln in lines if ln.startswith("ATOM"))
+            print(
+                f"  OK   {pdb_id} [{batch}] model {model_idx}: {spec}  map={af3_to_pa}  "
+                f"({n_atoms} atoms -> {rel_pdb})",
+                file=sys.stderr,
+            )
 
-        if not args.dry_run:
-            args.complex_dir.mkdir(parents=True, exist_ok=True)
-            dest.write_text("\n".join(lines) + "\n")
+            if not args.dry_run:
+                args.complex_dir.mkdir(parents=True, exist_ok=True)
+                dest.write_text("\n".join(lines) + "\n")
 
-        index_lines.append(f"{rel_pdb}\t{spec}")
+            index_lines.append(f"{rel_pdb}\t{spec}")
 
     if skipped:
         print(f"\nSkipped {len(skipped)}:", file=sys.stderr)

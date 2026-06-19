@@ -117,7 +117,8 @@ python scripts/collect_results.py results/run1 -o results/run1/summary.csv
 |--------|---------|
 | `scripts/prepare_proteins.py` | Merge per-chain AlphaFold models under `proteins/` into complex PDBs in `proteins/complexes/`, then write `data/index_proteins.txt` using only chains you modeled. |
 | `scripts/prepare_af3_proteins.py` | Convert AF3 CIF models under `AF3Proteins/AF3 Structure_batch*/` into PDBs in `AF3Proteins/complexes/`, then write `data/index_af3_batch<N>.txt`. |
-| `scripts/run_af3_batch.sh` | Convenience wrapper: `--prepare`, `--prebuild`, `--test`, `--infer`, `--collect` for one AF3 batch (batch2–batch4). |
+| `scripts/run_af3_batch.sh` | Convenience wrapper: `--prepare`, `--prebuild`, `--test`, `--infer`, `--collect` for one AF3 batch (batch2–batch4). Add `--all-models` for all 5 AF3 models. |
+| `scripts/run_proteins.sh` | Same for stitched `proteins/` complexes; `--all-ranks` for all 5 AlphaFold ranks. |
 | `scripts/build_proteins_index.py` | Alternative index builder for **experimental** crystal structures: scans `proteins/` folder names, maps curated antibody/antigen chain pairs, and optionally downloads PDBs from RCSB into `proteins/pdb/` (`--download`). Prefer `prepare_proteins.py` for AlphaFold outputs. |
 | `scripts/prebuild_pdbqt.sh` | Pre-convert all PDBs in an index to `data/pdbqt/<id>_atom_processed.pdbqt` on a login node. Inference tasks then skip ADFR conversion, saving GPU job time. |
 
@@ -132,6 +133,11 @@ python scripts/prepare_proteins.py
 ./scripts/submit_test.sh data/index_proteins.txt
 ./scripts/submit_array.sh data/index_proteins.txt results/proteins_run1
 python scripts/collect_results.py results/proteins_run1 -i data/index_proteins.txt
+
+# All 5 AlphaFold ranks per complex:
+./scripts/run_proteins.sh --all-ranks --prepare --prebuild --test
+./scripts/run_proteins.sh --all-ranks --infer
+./scripts/run_proteins.sh --all-ranks --collect
 ```
 
 **AlphaFold3 models in `AF3Proteins/`:**
@@ -148,6 +154,11 @@ export TRANSFORMERS_CACHE=$HF_HOME
 ./scripts/run_af3_batch.sh batch2 --prepare --prebuild --test
 ./scripts/run_af3_batch.sh batch2 --infer
 ./scripts/run_af3_batch.sh batch2 --collect
+
+# All 5 AF3 models per complex (5x SLURM tasks):
+./scripts/run_af3_batch.sh batch1 --all-models --prepare --prebuild --test
+./scripts/run_af3_batch.sh batch1 --all-models --infer
+./scripts/run_af3_batch.sh batch1 --all-models --collect
 
 # Or step by step:
 python scripts/prepare_af3_proteins.py --batches batch2

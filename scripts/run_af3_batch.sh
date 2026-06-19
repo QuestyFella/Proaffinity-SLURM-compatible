@@ -18,7 +18,8 @@
 #   export HUGGINGFACE_HUB_CACHE=$HF_HOME
 #   export TRANSFORMERS_CACHE=$HF_HOME
 #
-#   ./scripts/run_af3_batch.sh batch2 --prepare --prebuild --test
+#   ./scripts/run_af3_batch.sh batch2 --all-models --prepare --prebuild --test
+#   ./scripts/run_af3_batch.sh batch2 --all-models --infer
 #   ./scripts/run_af3_batch.sh batch2 --infer
 #   ./scripts/run_af3_batch.sh batch2 --collect
 # =============================================================================
@@ -36,6 +37,7 @@ Usage: ./scripts/run_af3_batch.sh <batch> [step flags] [sbatch args...]
 
 Step flags (pick one or more):
   --prepare      CIF -> PDB complexes + data/index_af3_batchN.txt
+  --all-models   Use all 5 AF3 models (index *_allmodels.txt, 5x entries)
   --prebuild     PDB -> PDBQT on login node (needs ADFR_PREPARE_RECEPTOR)
   --test         SLURM validation array (CPU, no GPU)
   --infer        SLURM inference array (GPU)
@@ -81,11 +83,13 @@ DO_PREBUILD=0
 DO_TEST=0
 DO_INFER=0
 DO_COLLECT=0
+ALL_MODELS=0
 SBATCH_ARGS=()
 
 while [ $# -gt 0 ]; do
     case "$1" in
         --prepare) DO_PREPARE=1 ;;
+        --all-models) ALL_MODELS=1 ;;
         --prebuild) DO_PREBUILD=1 ;;
         --test) DO_TEST=1 ;;
         --infer) DO_INFER=1 ;;
@@ -107,8 +111,15 @@ if [ "$DO_PREPARE$DO_PREBUILD$DO_TEST$DO_INFER$DO_COLLECT" = "00000" ]; then
     usage
 fi
 
-INDEX_FILE="${PROJECT_DIR}/data/index_af3_${BATCH}.txt"
-RESULTS_DIR="${PROJECT_DIR}/results/af3_${BATCH}"
+INDEX_SUFFIX=""
+RESULTS_SUFFIX=""
+if [ "$ALL_MODELS" -eq 1 ]; then
+    INDEX_SUFFIX="_allmodels"
+    RESULTS_SUFFIX="_allmodels"
+fi
+
+INDEX_FILE="${PROJECT_DIR}/data/index_af3_${BATCH}${INDEX_SUFFIX}.txt"
+RESULTS_DIR="${PROJECT_DIR}/results/af3_${BATCH}${RESULTS_SUFFIX}"
 AF3_BATCH_DIR="${PROJECT_DIR}/AF3Proteins/AF3 Structure_${BATCH}"
 
 cd "$PROJECT_DIR"
@@ -128,7 +139,11 @@ if [ "$DO_PREPARE" -eq 1 ]; then
         exit 1
     fi
     echo "[prepare] Converting CIFs and writing index..."
-    python3 "${SCRIPT_DIR}/prepare_af3_proteins.py" --batches "$BATCH" -o "$INDEX_FILE"
+    PREPARE_ARGS=(--batches "$BATCH" -o "$INDEX_FILE")
+    if [ "$ALL_MODELS" -eq 1 ]; then
+        PREPARE_ARGS+=(--all-models)
+    fi
+    python3 "${SCRIPT_DIR}/prepare_af3_proteins.py" "${PREPARE_ARGS[@]}"
 fi
 
 if [ ! -f "$INDEX_FILE" ]; then
