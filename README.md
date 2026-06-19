@@ -117,8 +117,10 @@ python scripts/collect_results.py results/run1 -o results/run1/summary.csv
 |--------|---------|
 | `scripts/prepare_proteins.py` | Merge per-chain AlphaFold models under `proteins/` into complex PDBs in `proteins/complexes/`, then write `data/index_proteins.txt` using only chains you modeled. |
 | `scripts/prepare_af3_proteins.py` | Convert AF3 CIF models under `AF3Proteins/AF3 Structure_batch*/` into PDBs in `AF3Proteins/complexes/`, then write `data/index_af3_batch<N>.txt`. |
+| `scripts/prepare_colabfold_proteins.py` | Remap ColabFold multimer PDB chain IDs (A/B/C) back to the chain IDs encoded in folder names, then write `data/index_colabfold_fast.txt`. |
 | `scripts/run_af3_batch.sh` | Convenience wrapper: `--prepare`, `--prebuild`, `--test`, `--infer`, `--collect` for one AF3 batch (batch2–batch4). Add `--all-models` for all 5 AF3 models. |
 | `scripts/run_proteins.sh` | Same for stitched `proteins/` complexes; `--all-ranks` for all 5 AlphaFold ranks. |
+| `scripts/run_colabfold_batch.sh` | Same wrapper for ColabFold multimer PDBs in `colabfold_fast_results/`. |
 | `scripts/build_proteins_index.py` | Alternative index builder for **experimental** crystal structures: scans `proteins/` folder names, maps curated antibody/antigen chain pairs, and optionally downloads PDBs from RCSB into `proteins/pdb/` (`--download`). Prefer `prepare_proteins.py` for AlphaFold outputs. |
 | `scripts/prebuild_pdbqt.sh` | Pre-convert all PDBs in an index to `data/pdbqt/<id>_atom_processed.pdbqt` on a login node. Inference tasks then skip ADFR conversion, saving GPU job time. |
 
@@ -180,6 +182,21 @@ Before running on the cluster, rsync each batch folder from your Mac:
 ```bash
 rsync -av "AF3Proteins/AF3 Structure_batch2/" \
   user@cluster:.../AF3Proteins/AF3\ Structure_batch2/
+```
+
+**ColabFold multimer PDBs in `colabfold_fast_results/`:**
+
+```bash
+export PROAFFINITY_SLURM_ACCOUNT=def-yourgroup-ab
+export PROAFFINITY_VENV=$HOME/proaffinity-env
+export ADFR_PREPARE_RECEPTOR=$HOME/software/ADFRsuite/bin/prepare_receptor
+export HF_HOME=$HOME/.cache/huggingface
+export HUGGINGFACE_HUB_CACHE=$HF_HOME
+export TRANSFORMERS_CACHE=$HF_HOME
+
+./scripts/run_colabfold_batch.sh --prepare --prebuild --test
+./scripts/run_colabfold_batch.sh --infer
+./scripts/run_colabfold_batch.sh --collect
 ```
 
 **Local batch (no SLURM):**

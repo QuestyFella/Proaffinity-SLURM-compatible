@@ -7,6 +7,10 @@ reasonix.toml
 *.code-workspace
 proteins/
 AF3Proteins/
+colabfold_fast_results/
+colabfold_fast_results.tar.gz
+colabfold_results_full_17/
+colabfold_results_full_17.tar.gz
 
 # SLURM / inference outputs (regenerate with collect_results.py)
 results/
