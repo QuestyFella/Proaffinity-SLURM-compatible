@@ -1,5 +1,10 @@
 __pycache__/
 .DS_Store
+.cursor/
+.codegraph/
+logs/
+reasonix.toml
+*.code-workspace
 proteins/
 AF3Proteins/
 
@@ -8,4 +13,6 @@ results/
 test_results/
 slurm-*.out
 slurm-*.err
-proaffinity.code-workspace
+
+# Local handoff notes (not for git)
+HANDOFF.md
